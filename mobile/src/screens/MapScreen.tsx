@@ -359,7 +359,7 @@ const MapScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.promptText}>Sign in to access the racing map</Text>
         </View>
@@ -370,7 +370,7 @@ const MapScreen: React.FC = () => {
   const markers = generateMarkers();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <MockMapView
         markers={markers}
         onMarkerPress={handleMarkerPress}

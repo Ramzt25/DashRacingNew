@@ -160,6 +160,10 @@ export const spacing = {
   headerHeight: 60,
   tabBarHeight: 80,
   
+  // Safe area specific
+  safeAreaBottom: 80, // Space for tab bar and safe area
+  safeAreaTop: 44,    // Space for status bar
+  
   // Racing specific
   statsSpacing: 12,
   gaugeSpacing: 20,
