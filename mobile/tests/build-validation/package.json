@@ -1,0 +1,46 @@
+{
+  "name": "dash-racing-build-validation",
+  "version": "1.0.0",
+  "description": "Comprehensive build validation test suite for DASH Racing React Native mobile app",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js",
+    "test:config": "node index.js config",
+    "test:process": "node index.js process", 
+    "test:integration": "node index.js integration",
+    "test:quick": "node index.js quick",
+    "test:prebuild": "node index.js prebuild",
+    "test:full": "node index.js full",
+    "validate": "npm run test:full",
+    "quick-check": "npm run test:quick",
+    "prebuild-check": "npm run test:prebuild",
+    "test:build": "jest --config=jest.config.js",
+    "test:build:config": "jest --testPathPattern=config --config=jest.config.js",
+    "test:build:packages": "jest --testPathPattern=packages --config=jest.config.js",
+    "test:build:process": "jest --testPathPattern=process --config=jest.config.js",
+    "test:build:apk": "jest --testPathPattern=apk --config=jest.config.js",
+    "test:build:integration": "jest --testPathPattern=integration --config=jest.config.js",
+    "test:build:report": "jest --config=jest.config.js --reporters=default --reporters=jest-html-reporters",
+    "validate:environment": "node validators/environment.js",
+    "validate:dependencies": "node validators/dependencies.js",
+    "validate:build": "node validators/build.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-html-reporters": "^3.1.5",
+    "@types/jest": "^29.5.8",
+    "semver": "^7.5.4",
+    "fast-xml-parser": "^4.3.2",
+    "glob": "^10.3.10"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 300000,
+    "verbose": true,
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}

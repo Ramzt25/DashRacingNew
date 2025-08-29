@@ -74,12 +74,21 @@ test-output/
 .metro-health-check*
 
 # Android
-android/app/build/
-android/app/release/
-android/gradle/
-android/gradlew
-android/gradlew.bat
-android/local.properties
+mobile/android/app/build/
+mobile/android/app/release/
+mobile/android/gradle/
+mobile/android/.gradle/
+mobile/android/gradlew
+mobile/android/gradlew.bat
+mobile/android/local.properties
+mobile/android/build/
+
+# Large Android files
+mobile/android/gradle.zip
+mobile/android/gradle-8.14.3/
+
+# APK builds (too large for GitHub)
+builds/*.apk
 
 # iOS
 ios/build/

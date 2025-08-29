@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { User, Vehicle, UserPreferences, Race, Friend } from '../../../shared/types';
 import { storageService } from '../services/storage';
-import { supabaseService } from '../services/supabase';
+import { apiService } from '../services/api';
 
 // App State Interface
 interface AppState {
@@ -251,11 +251,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await loadCachedData();
 
       // Check authentication
-      const user = await supabaseService.getCurrentUser();
-      if (user) {
-        dispatch({ type: 'SET_USER', payload: user });
-        dispatch({ type: 'SET_AUTHENTICATED', payload: true });
-        await loadUserDataHelper();
+      try {
+        const verifyResponse = await apiService.verifyToken();
+        if (verifyResponse.success && verifyResponse.data) {
+          const profileResponse = await apiService.getUserProfile();
+          if (profileResponse.success && profileResponse.data) {
+            dispatch({ type: 'SET_USER', payload: profileResponse.data });
+            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+            await loadUserDataHelper();
+          }
+        }
+      } catch (error) {
+        // Token is invalid or expired, user needs to login again
+        console.log('No valid session found');
       }
 
       // Check onboarding status
@@ -302,9 +310,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user?.id) return;
       
       // Load vehicles
-      const vehiclesResponse = await supabaseService.getUserVehicles(state.user.id);
+      const vehiclesResponse = await apiService.getUserVehicles();
       if (vehiclesResponse.success && vehiclesResponse.data) {
-        dispatch({ type: 'SET_VEHICLES', payload: vehiclesResponse.data });
+        dispatch({ type: 'SET_VEHICLES', payload: vehiclesResponse.data.vehicles });
       }
 
       // Load friends - simplified for now
@@ -321,12 +329,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
         
-        const response = await supabaseService.signIn(email, password);
+        const response = await apiService.login(email, password);
         if (response.success && response.data) {
-          dispatch({ type: 'SET_USER', payload: response.data });
+          const user = response.data as User & { token: string };
+          dispatch({ type: 'SET_USER', payload: user });
           dispatch({ type: 'SET_AUTHENTICATED', payload: true });
           
-          await storageService.setUser(response.data);
+          await storageService.setUser(user);
           await loadUserDataHelper();
           
           return true;
@@ -345,12 +354,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
         
-        const response = await supabaseService.signUp(email, password, username);
+        const response = await apiService.register(email, password, username);
         if (response.success && response.data) {
-          dispatch({ type: 'SET_USER', payload: response.data });
+          const user = response.data as User & { token: string };
+          dispatch({ type: 'SET_USER', payload: user });
           dispatch({ type: 'SET_AUTHENTICATED', payload: true });
           
-          await storageService.setUser(response.data);
+          await storageService.setUser(user);
           
           return true;
         }
@@ -366,7 +376,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     signOut: async (): Promise<void> => {
       try {
-        await supabaseService.signOut();
+        await apiService.logout();
         await storageService.clearUserData();
         
         dispatch({ type: 'RESET_STATE' });
@@ -380,13 +390,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!state.user) return;
 
         // Load user vehicles
-        const vehiclesResponse = await supabaseService.getUserVehicles(state.user.id);
+        const vehiclesResponse = await apiService.getUserVehicles();
         if (vehiclesResponse.success && vehiclesResponse.data) {
-          dispatch({ type: 'SET_VEHICLES', payload: vehiclesResponse.data });
-          await storageService.setVehicles(vehiclesResponse.data);
+          dispatch({ type: 'SET_VEHICLES', payload: vehiclesResponse.data.vehicles });
+          await storageService.setVehicles(vehiclesResponse.data.vehicles);
           
           const selectedVehicleId = await storageService.getSelectedVehicle();
-          const selectedVehicle = vehiclesResponse.data.find(v => v.id === selectedVehicleId) || vehiclesResponse.data[0];
+          const selectedVehicle = vehiclesResponse.data.vehicles.find((v: Vehicle) => v.id === selectedVehicleId) || vehiclesResponse.data.vehicles[0];
           if (selectedVehicle) {
             dispatch({ type: 'SET_SELECTED_VEHICLE', payload: selectedVehicle });
           }
@@ -403,7 +413,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user) return;
 
       try {
-        const response = await supabaseService.updateUser(state.user.id, updates);
+        const response = await apiService.updateUserProfile(updates);
         if (response.success && response.data) {
           dispatch({ type: 'SET_USER', payload: response.data });
           await storageService.setUser(response.data);
@@ -431,10 +441,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user) return;
 
       try {
-        const response = await supabaseService.createVehicle({
-          ...vehicle,
-          userId: state.user.id,
-        });
+        const response = await apiService.createVehicle(vehicle);
 
         if (response.success && response.data) {
           dispatch({ type: 'ADD_VEHICLE', payload: response.data });
@@ -452,7 +459,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     removeVehicle: async (vehicleId: string): Promise<void> => {
       try {
-        const response = await supabaseService.deleteVehicle(vehicleId);
+        const response = await apiService.deleteVehicle(vehicleId);
         if (response.success) {
           dispatch({ type: 'REMOVE_VEHICLE', payload: vehicleId });
           await storageService.removeVehicle(vehicleId);
@@ -478,10 +485,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user) return;
 
       try {
-        const response = await supabaseService.getUserVehicles(state.user.id);
+        const response = await apiService.getUserVehicles();
         if (response.success && response.data) {
-          dispatch({ type: 'SET_VEHICLES', payload: response.data });
-          await storageService.setVehicles(response.data);
+          dispatch({ type: 'SET_VEHICLES', payload: response.data.vehicles });
+          await storageService.setVehicles(response.data.vehicles);
         }
       } catch (error) {
         console.error('Failed to load vehicles:', error);
@@ -491,9 +498,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Race Management
     loadNearbyRaces: async (lat: number, lng: number): Promise<void> => {
       try {
-        const response = await supabaseService.getNearbyRaces(lat, lng);
+        const response = await apiService.getRaces();
         if (response.success && response.data) {
-          dispatch({ type: 'SET_NEARBY_RACES', payload: response.data });
+          dispatch({ type: 'SET_NEARBY_RACES', payload: response.data.races });
         }
       } catch (error) {
         console.error('Failed to load nearby races:', error);
@@ -513,7 +520,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user || !state.selectedVehicle) return false;
 
       try {
-        const response = await supabaseService.joinRace(raceId, state.user.id, state.selectedVehicle.id);
+        const response = await apiService.joinRace(raceId, state.selectedVehicle.id);
         return response.success;
       } catch (error) {
         console.error('Failed to join race:', error);
@@ -525,7 +532,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.user) return false;
 
       try {
-        const response = await supabaseService.leaveRace(raceId, state.user.id);
+        const response = await apiService.leaveRace(raceId);
         return response.success;
       } catch (error) {
         console.error('Failed to leave race:', error);

@@ -11,6 +11,12 @@
     "dev:android": "cd mobile && npm run android",
     "build:mobile": "cd mobile && npm run build",
     "build:backend": "cd backend && npm run build",
+    "build:apk": "powershell -ExecutionPolicy Bypass -File ./build-apk-fixed.ps1",
+    "build:apk:force": "powershell -ExecutionPolicy Bypass -File ./build-apk-fixed.ps1 -ForceRestart",
+    "build:apk:quick": "powershell -ExecutionPolicy Bypass -File ./build-apk-fixed.ps1 -SkipTests",
+    "validate": "node validate.js",
+    "test:integration": "node tests/test-mobile-app-integration.js",
+    "test:api": "node tests/test-with-seed-data.js",
     "lint": "cd mobile && npm run lint && cd ../backend && npm run lint",
     "test": "cd mobile && npm test && cd ../backend && npm test",
     "clean": "cd mobile && npm run clean && cd ../backend && npm run clean"
@@ -43,6 +49,7 @@
     "prettier": "^3.3.0"
   },
   "dependencies": {
+    "@react-native-community/cli-platform-android": "^20.0.1",
     "axios": "^1.11.0",
     "node-fetch": "^3.3.2"
   }

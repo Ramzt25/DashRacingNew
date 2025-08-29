@@ -1,0 +1,7 @@
+{
+  "packageName": "com.dashracing",
+  "sourceDir": "C:\\Users\\tramsey\\Projects\\DashRacingNew\\mobile\\android",
+  "appName": "app",
+  "applicationId": "com.dashracing",
+  "mainActivity": ".MainActivity"
+}

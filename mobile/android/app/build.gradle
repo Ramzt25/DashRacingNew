@@ -1,0 +1,85 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+
+apply from: "../../node_modules/react-native/node_modules/@react-native-community/cli-platform-android/native_modules.gradle";
+applyNativeModulesAppBuildGradle(project)
+
+project.ext.react = [
+    enableHermes: true
+]
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    
+    compileSdk rootProject.ext.compileSdkVersion
+    
+    namespace "com.dashracing"
+    
+    defaultConfig {
+        applicationId "com.dashracing"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+    
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.0.0")
+    
+    // Standard Android dependencies
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    
+    // React Native 0.74.7 core dependency
+    implementation('com.facebook.react:react-android:0.74.7')
+    implementation('com.facebook.soloader:soloader:0.10.5')
+    
+    // React Native 0.74.7 handles JS engine through autolinking
+    debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
+    debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {
+        exclude group:'com.squareup.okhttp3', module:'okhttp'
+    }
+}
+
+// Force React Native dependency resolution to prevent conflicts
+configurations.all {
+    resolutionStrategy {
+        // Map react-native requests to react-android which is the actual package
+        eachDependency { details ->
+            if (details.requested.group == 'com.facebook.react' && 
+                details.requested.name == 'react-native') {
+                details.useTarget group: 'com.facebook.react', name: 'react-android', version: '0.74.7'
+            }
+        }
+        
+        force 'com.facebook.react:react-android:0.74.7'
+    }
+}

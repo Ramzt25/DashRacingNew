@@ -165,8 +165,73 @@ export class SupabaseService {
         };
       }
 
-      // Real Supabase implementation would go here
-      throw new Error('Real Supabase registration not implemented in this mock context');
+      // Real Supabase implementation
+      // Check if username already exists
+      const { data: existingUsername, error: usernameError } = await this.supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .single();
+
+      if (existingUsername) {
+        return {
+          success: false,
+          error: 'Username already taken',
+        };
+      }
+
+      // Check if email already exists
+      const { data: existingEmail, error: emailError } = await this.supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (existingEmail) {
+        return {
+          success: false,
+          error: 'Email already registered',
+        };
+      }
+
+      // Create new user
+      const newUser = {
+        auth_user_id: `auth_${Date.now()}`, // Temporary auth ID
+        email,
+        username,
+        preferences: JSON.stringify({
+          notifications: true,
+          location: true,
+          units: 'imperial',
+          soundEnabled: true,
+          vibrationEnabled: true,
+        }),
+        stats: JSON.stringify({
+          totalRaces: 0,
+          wins: 0,
+          bestTime: null,
+          totalDistance: 0,
+          winRate: 0,
+          racesWon: 0,
+          bestLapTime: null,
+          averageSpeed: 0,
+        }),
+        is_pro: false,
+        created_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await this.supabase
+        .from('users')
+        .insert([newUser])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: this.mapUserFromDb(data),
+      };
       
     } catch (error) {
       return {
