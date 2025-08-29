@@ -124,7 +124,7 @@ describe('API Integration Tests', () => {
       const getUpdatedResponse = await apiClient.get('/api/users/profile');
       expect(getUpdatedResponse.data.firstName).toBe(updateData.firstName);
     });
-    });
+
     test('User statistics tracking', async () => {
       // Create some test data that would affect stats
       await apiClient.post('/api/vehicles', {
