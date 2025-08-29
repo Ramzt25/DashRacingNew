@@ -22,7 +22,7 @@ export class TestApiClient {
   private baseUrl: string;
   private authToken?: string;
 
-  constructor(baseUrl: string = 'http://localhost:3001') {
+  constructor(baseUrl: string = 'http://localhost:8000') {
     this.baseUrl = baseUrl;
   }
 
