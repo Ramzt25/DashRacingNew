@@ -5,6 +5,11 @@
   "main": "index.js",
   "scripts": {
     "install:all": "npm install && cd mobile && npm install && cd ../backend && npm install",
+    "start:local": "concurrently \"npm run backend:dev\" \"npm run mobile:start\"",
+    "backend:dev": "cd backend && npm run dev",
+    "mobile:start": "cd mobile && npm start",
+    "mobile:android": "cd mobile && npm run android",
+    "get-ip": "node scripts/get-local-ip.js",
     "dev:mobile": "cd mobile && npm start",
     "dev:backend": "cd backend && npm run dev",
     "dev:ios": "cd mobile && npm run ios",
@@ -51,6 +56,7 @@
   "dependencies": {
     "@react-native-community/cli-platform-android": "^20.0.1",
     "axios": "^1.11.0",
+    "concurrently": "^9.2.1",
     "node-fetch": "^3.3.2"
   }
 }

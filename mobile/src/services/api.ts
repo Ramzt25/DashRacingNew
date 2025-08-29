@@ -1,10 +1,13 @@
 import { User, Vehicle, Race, Friendship, ApiResponse } from '../../../shared/types';
+import { API_BASE_URL } from '@env';
+import * as Keychain from 'react-native-keychain';
 
 // Backend API configuration
-// For development: Use PC's IP address so mobile devices on same network can connect
-// For production: Replace with your actual deployed backend URL
-const API_BASE_URL = __DEV__ ? 'http://192.168.168.28:8000' : 'https://your-production-backend.com';
+// Use environment variable for base URL to support local network development
+const BASE_URL = API_BASE_URL || (__DEV__ ? 'http://192.168.1.100:3000' : 'https://your-production-backend.com');
 const API_TIMEOUT = 10000;
+
+console.log('🔧 API Configuration:', { BASE_URL, isDev: __DEV__ });
 
 interface LoginRequest {
   email: string;
@@ -27,28 +30,31 @@ class ApiService {
 
   private async loadAuthToken() {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
-      this.authToken = await AsyncStorage.default.getItem('auth_token');
+      const credentials = await Keychain.getInternetCredentials('dash_racing_auth');
+      if (credentials) {
+        this.authToken = credentials.password;
+        console.log('🔐 Auth token loaded from secure keychain');
+      }
     } catch (error) {
-      console.error('Failed to load auth token:', error);
+      console.error('Failed to load auth token from keychain:', error);
     }
   }
 
   private async saveAuthToken(token: string) {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
-      await AsyncStorage.default.setItem('auth_token', token);
+      await Keychain.setInternetCredentials('dash_racing_auth', 'token', token);
       this.authToken = token;
+      console.log('🔐 Auth token saved to secure keychain');
     } catch (error) {
-      console.error('Failed to save auth token:', error);
+      console.error('Failed to save auth token to keychain:', error);
     }
   }
 
   private async clearAuthToken() {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
-      await AsyncStorage.default.removeItem('auth_token');
+      await Keychain.resetInternetCredentials('dash_racing_auth');
       this.authToken = null;
+      console.log('🔐 Auth token cleared from keychain');
     } catch (error) {
       console.error('Failed to clear auth token:', error);
     }
@@ -71,7 +77,8 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${API_BASE_URL}${endpoint}`;
+      const url = `${BASE_URL}${endpoint}`;
+      console.log('📡 API Request:', url);
       
       const response = await fetch(url, {
         headers: this.getHeaders(),
