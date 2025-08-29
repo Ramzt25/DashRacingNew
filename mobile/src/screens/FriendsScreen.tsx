@@ -558,7 +558,7 @@ const FriendsScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.promptText}>Sign in to access friends</Text>
         </View>
@@ -567,7 +567,7 @@ const FriendsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>👥 Friends</Text>
         <Button

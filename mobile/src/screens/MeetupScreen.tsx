@@ -515,7 +515,7 @@ const MeetupScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.promptText}>Sign in to access meetups</Text>
         </View>
@@ -526,7 +526,7 @@ const MeetupScreen: React.FC = () => {
   const filteredMeetups = getFilteredMeetups();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>🏆 Meetups</Text>
         <RaceButton

@@ -305,7 +305,7 @@ const SettingsScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.promptText}>Sign in to access settings</Text>
         </View>
@@ -314,7 +314,7 @@ const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>⚙️ Settings</Text>
       </View>

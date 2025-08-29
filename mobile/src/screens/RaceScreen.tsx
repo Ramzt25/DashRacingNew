@@ -283,7 +283,7 @@ const RaceScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.promptText}>Sign in to access racing features</Text>
         </View>
@@ -292,7 +292,7 @@ const RaceScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>🏁 Racing Hub</Text>
         <RaceButton
@@ -470,11 +470,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl, // Extra bottom padding for tab bar
   } as ViewStyle,
   
   content: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxl, // Extra bottom padding for tab bar
   } as ViewStyle,
   
   warningCard: {

@@ -230,14 +230,15 @@ class DashRacingServer {
       await this.registerRoutes();
 
       // Start the server
-      const port = parseInt(process.env.PORT || '8000');
-      const host = process.env.HOST || 'localhost';
+      const port = parseInt(process.env.PORT || '3000');
+      const host = process.env.HOST || '0.0.0.0';
 
       await this.fastify.listen({ port, host });
       
       console.log(`🏁 DASH RACING API Server running on http://${host}:${port}`);
       console.log(`🚀 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📊 Health check: http://${host}:${port}/health`);
+      console.log(`🌐 Network access enabled - mobile devices can connect via local IP`);
       
       // Initialize WebSocket service
       this.wsService.initialize();

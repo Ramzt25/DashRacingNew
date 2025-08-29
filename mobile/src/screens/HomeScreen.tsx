@@ -36,7 +36,7 @@ const HomeScreen: React.FC = () => {
 
   if (!state.isAuthenticated || !state.user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.authPrompt}>
           <Text style={styles.welcomeText}>🏎️</Text>
           <Text style={styles.brandName}>DASH RACING</Text>
@@ -55,7 +55,7 @@ const HomeScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -211,6 +211,9 @@ const HomeScreen: React.FC = () => {
             </View>
           </View>
         )}
+        
+        {/* Bottom spacing for tab bar */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -519,6 +522,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   } as TextStyle,
+
+  // Bottom spacing for safe area
+  bottomSpacing: {
+    height: spacing.xxxl, // Extra space for tab bar
+  } as ViewStyle,
 });
 
 export default HomeScreen;

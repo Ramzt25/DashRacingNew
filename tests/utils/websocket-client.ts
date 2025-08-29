@@ -16,7 +16,7 @@ export class TestWebSocketClient {
   private listeners: Map<string, Function[]> = new Map();
   private connectionPromise?: Promise<void>;
 
-  constructor(url: string = 'ws://localhost:8000') {
+  constructor(url: string = 'ws://localhost:3000') {
     this.url = url;
   }
 
