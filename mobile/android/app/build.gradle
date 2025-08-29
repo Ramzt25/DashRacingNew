@@ -11,13 +11,13 @@ project.ext.react = [
 android {
     ndkVersion rootProject.ext.ndkVersion
     
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk 35
     
     namespace "com.dashracing"
     
     defaultConfig {
         applicationId "com.dashracing"
-        minSdkVersion rootProject.ext.minSdkVersion
+        minSdk 23
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
