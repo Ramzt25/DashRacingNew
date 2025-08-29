@@ -3,6 +3,13 @@ import { User, Vehicle, Race, Meetup, Friendship, ApiResponse } from '../types';
 
 export class SupabaseService {
   public supabase: SupabaseClient;
+  private mockMode: boolean = false;
+  private mockUsers: Map<string, any> = new Map();
+  private mockUsersByEmail: Map<string, any> = new Map();
+  private mockUsersByUsername: Map<string, any> = new Map();
+  private mockVehicles: Map<string, any> = new Map();
+  private mockRaces: Map<string, any> = new Map();
+  private mockUserCounter = 1;
 
   constructor() {
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -11,6 +18,9 @@ export class SupabaseService {
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing Supabase configuration');
     }
+
+    // Check if we're in mock mode
+    this.mockMode = process.env.NODE_ENV === 'development' && supabaseUrl.includes('example');
 
     this.supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -23,8 +33,9 @@ export class SupabaseService {
   async initialize(): Promise<void> {
     try {
       // Skip connection test in development with example credentials
-      if (process.env.NODE_ENV === 'development' && process.env.SUPABASE_URL?.includes('example')) {
+      if (this.mockMode) {
         console.log('⚠️  Using mock Supabase credentials for development');
+        console.log('📝 Mock database mode enabled - all operations will use in-memory storage');
         return;
       }
 
@@ -40,6 +51,7 @@ export class SupabaseService {
       // Don't throw in development - allow server to start with mock data
       if (process.env.NODE_ENV === 'development') {
         console.log('⚠️  Continuing with mock database for development');
+        this.mockMode = true;
         return;
       }
       
@@ -50,6 +62,24 @@ export class SupabaseService {
   // User Management
   async createUser(userData: Omit<User, 'id' | 'createdAt'>): Promise<ApiResponse<User>> {
     try {
+      if (this.mockMode) {
+        const mockUser = {
+          id: `user_${this.mockUserCounter++}`,
+          ...userData,
+          created_at: new Date().toISOString(),
+        };
+        this.mockUsers.set(mockUser.id, mockUser);
+        this.mockUsersByEmail.set(mockUser.email, mockUser);
+        this.mockUsersByUsername.set(mockUser.username, mockUser);
+        
+        console.log('📝 Mock: Created user', mockUser.username, 'with ID', mockUser.id);
+        
+        return {
+          success: true,
+          data: this.mapUserFromDb(mockUser),
+        };
+      }
+
       const { data, error } = await this.supabase
         .from('users')
         .insert([{
@@ -73,8 +103,98 @@ export class SupabaseService {
     }
   }
 
+  async registerUser(email: string, username: string, password: string): Promise<ApiResponse<User>> {
+    try {
+      if (this.mockMode) {
+        // Check if username already exists
+        const existingUser = await this.getUserByUsername(username);
+        if (existingUser.success) {
+          return {
+            success: false,
+            error: 'Username already taken',
+          };
+        }
+
+        // Check if email already exists
+        const existingEmail = await this.getUserByEmail(email);
+        if (existingEmail.success) {
+          return {
+            success: false,
+            error: 'Email already registered',
+          };
+        }
+
+        // Create mock user
+        const mockUser = {
+          id: `user_${this.mockUserCounter++}`,
+          auth_user_id: `auth_${this.mockUserCounter}`,
+          email,
+          username,
+          avatar: null,
+          location: null,
+          preferences: JSON.stringify({
+            notifications: true,
+            location: true,
+            units: 'imperial',
+            soundEnabled: true,
+            vibrationEnabled: true,
+          }),
+          stats: JSON.stringify({
+            totalRaces: 0,
+            wins: 0,
+            bestTime: null,
+            totalDistance: 0,
+            winRate: 0,
+            racesWon: 0,
+            bestLapTime: null,
+            averageSpeed: 0,
+          }),
+          is_pro: false,
+          created_at: new Date().toISOString(),
+        };
+
+        this.mockUsers.set(mockUser.id, mockUser);
+        this.mockUsersByEmail.set(mockUser.email, mockUser);
+        this.mockUsersByUsername.set(mockUser.username, mockUser);
+        
+        console.log('📝 Mock: Registered user', mockUser.username, 'with ID', mockUser.id);
+        
+        return {
+          success: true,
+          data: this.mapUserFromDb(mockUser),
+        };
+      }
+
+      // Real Supabase implementation would go here
+      throw new Error('Real Supabase registration not implemented in this mock context');
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `Registration failed: ${error}`,
+      };
+    }
+  }
+
   async getUserById(userId: string): Promise<ApiResponse<User>> {
     try {
+      if (this.mockMode) {
+        const mockUser = this.mockUsers.get(userId);
+        if (!mockUser) {
+          return {
+            success: false,
+            error: 'User not found',
+          };
+        }
+        
+        console.log('📝 Mock: Found user by ID', userId, '→', mockUser.username);
+        
+        return {
+          success: true,
+          data: this.mapUserFromDb(mockUser),
+        };
+      }
+
       const { data, error } = await this.supabase
         .from('users')
         .select('*')
@@ -95,8 +215,67 @@ export class SupabaseService {
     }
   }
 
+  async getUserByUsername(username: string): Promise<ApiResponse<User>> {
+    try {
+      if (this.mockMode) {
+        console.log('📝 Mock: getUserByUsername called with:', username);
+        console.log('📝 Mock: Available usernames:', Array.from(this.mockUsersByUsername.keys()));
+        
+        const mockUser = this.mockUsersByUsername.get(username);
+        if (!mockUser) {
+          console.log('📝 Mock: Username', username, 'not found');
+          return {
+            success: false,
+            error: 'User not found',
+          };
+        }
+        
+        console.log('📝 Mock: Found user by username', username, '→', mockUser.id);
+        return {
+          success: true,
+          data: this.mapUserFromDb(mockUser),
+        };
+      }
+
+      const { data, error } = await this.supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: this.mapUserFromDb(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `User not found: ${error}`,
+      };
+    }
+  }
+
   async getUserByEmail(email: string): Promise<ApiResponse<User>> {
     try {
+      if (this.mockMode) {
+        const mockUser = this.mockUsersByEmail.get(email);
+        if (!mockUser) {
+          return {
+            success: false,
+            error: 'User not found',
+          };
+        }
+        
+        console.log('📝 Mock: Found user by email', email, '→', mockUser.username);
+        
+        return {
+          success: true,
+          data: this.mapUserFromDb(mockUser),
+        };
+      }
+
       const { data, error } = await this.supabase
         .from('users')
         .select('*')

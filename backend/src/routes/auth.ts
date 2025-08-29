@@ -28,7 +28,7 @@ const loginSchema = Joi.object({
 });
 
 async function authRoutes(fastify: FastifyInstance): Promise<void> {
-  const dbService = new SupabaseService();
+  const dbService = (fastify as any).supabaseService;
 
   // Register new user
   fastify.post('/register', async (request: FastifyRequest<{ Body: RegisterBody }>, reply: FastifyReply) => {
@@ -47,73 +47,23 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       const { email, password, username } = value;
 
-      // Check if username is already taken
-      const { data: existingUsername } = await dbService.supabase
-        .from('users')
-        .select('id')
-        .eq('username', username)
-        .single();
+      // Use the mock-aware registration method
+      const registrationResult = await dbService.registerUser(email, username, password);
       
-      if (existingUsername) {
-        return reply.code(409).send({
-          success: false,
-          error: 'Username Taken',
-          message: 'This username is already in use',
-        });
-      }
-
-      // Create user in Supabase Auth using regular signup (not admin)
-      const { data: authData, error: authError } = await dbService.supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (authError || !authData.user) {
-        console.error('Supabase Auth error:', authError?.message || 'Unknown auth error');
-        return reply.code(400).send({
+      if (!registrationResult.success) {
+        const errorCode = registrationResult.error?.includes('already') ? 409 : 400;
+        return reply.code(errorCode).send({
           success: false,
           error: 'Registration Failed',
-          message: authError?.message || 'Failed to create auth user',
+          message: registrationResult.error || 'Failed to register user',
         });
       }
 
-      // Create user profile in database
-      const { data: profileData, error: profileError } = await dbService.supabase
-        .from('users')
-        .insert({
-          auth_user_id: authData.user.id,
-          email,
-          username,
-          // Default preferences
-          units: 'imperial',
-          notifications_enabled: true,
-          location_sharing_enabled: true,
-          sound_enabled: true,
-          vibration_enabled: true,
-          is_pro: false,
-          // Default stats
-          total_races: 0,
-          total_wins: 0,
-          total_distance: 0,
-          win_rate: 0,
-        })
-        .select()
-        .single();
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError.message || 'Unknown profile error');
-        // Note: Can't clean up auth user without admin privileges
-        return reply.code(500).send({
-          success: false,
-          error: 'Registration Failed',
-          message: 'Failed to create user profile: ' + (profileError.message || 'Unknown error'),
-        });
-      }
+      const profileData = registrationResult.data!;
 
       // Generate JWT token
       const token = fastify.jwt.sign({
         userId: profileData.id,
-        authUserId: authData.user.id,
         email: profileData.email,
         username: profileData.username,
       }, {
@@ -122,7 +72,6 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       const refreshToken = fastify.jwt.sign({
         userId: profileData.id,
-        authUserId: authData.user.id,
         type: 'refresh',
       }, {
         expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
@@ -135,9 +84,9 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
           id: profileData.id,
           username: profileData.username,
           email: profileData.email,
-          avatar: profileData.avatar_url,
-          isPro: profileData.is_pro,
-          createdAt: profileData.created_at,
+          avatar: profileData.avatar,
+          isPro: profileData.isPro,
+          createdAt: profileData.createdAt,
           token,
           refreshToken,
         },
