@@ -1,0 +1,63 @@
+{
+  "name": "dash-racing-tests",
+  "version": "1.0.0",
+  "description": "End-to-End Testing Suite for DASH RACING",
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch --runInBand",
+    "test:e2e": "jest --config jest.e2e.config.js --runInBand",
+    "test:unit": "jest --config jest.unit.config.js",
+    "test:integration": "jest --config jest.integration.config.js --runInBand",
+    "test:ci": "jest --ci --coverage --runInBand",
+    "test:mobile": "cd ../mobile && npm test",
+    "test:backend": "cd ../backend && npm test",
+    "pretest": "npm run start:test-servers",
+    "posttest": "npm run stop:test-servers",
+    "start:test-servers": "concurrently \"npm run start:backend\" \"npm run start:mobile\" --kill-others-on-fail",
+    "start:backend": "cd ../backend && npm run dev",
+    "start:mobile": "cd ../mobile && npx react-native start",
+    "stop:test-servers": "taskkill /F /IM node.exe /T 2>nul || true"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.5.4",
+    "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.5.12",
+    "axios": "^1.7.7",
+    "concurrently": "^8.2.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.2",
+    "ws": "^8.18.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "<rootDir>/setup/jest.setup.ts"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts",
+      "**/?(*.)+(spec|test).ts"
+    ],
+    "collectCoverageFrom": [
+      "../mobile/src/**/*.{ts,tsx}",
+      "../backend/src/**/*.ts",
+      "!../mobile/src/**/*.d.ts",
+      "!../backend/src/**/*.d.ts"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
+  },
+  "dependencies": {
+    "@types/node-fetch": "^2.6.13",
+    "node-fetch": "^2.7.0"
+  }
+}

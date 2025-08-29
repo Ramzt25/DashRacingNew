@@ -1,0 +1,430 @@
+/**
+ * Integration Tests for API Endpoints
+ * Tests API endpoints with full backend integration
+ */
+
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { apiClient } from '../utils/api-client';
+import { TestUtils } from '../utils/test-utils';
+
+describe('API Integration Tests', () => {
+  let testUser: any;
+  let authToken: string;
+
+  beforeEach(async () => {
+    testUser = TestUtils.generateTestUser();
+    
+    // Register user
+    const registerResponse = await apiClient.post('/api/auth/register', {
+      email: testUser.email,
+      username: testUser.username,
+      password: testUser.password
+    });
+
+    if (!registerResponse.success) {
+      throw new Error(`Registration failed: ${registerResponse.error}`);
+    }
+
+    // Login to get token
+    const loginResponse = await apiClient.post('/api/auth/login', {
+      email: testUser.email,
+      password: testUser.password
+    });
+
+    if (!loginResponse.success) {
+      throw new Error(`Login failed: ${loginResponse.error}`);
+    }
+
+    authToken = loginResponse.data?.token;
+    if (authToken) {
+      apiClient.setAuthToken(authToken);
+    } else {
+      throw new Error('No token received from login');
+    }
+  });
+
+  afterEach(async () => {
+    await apiClient.post('/api/auth/logout').catch(() => {});
+    apiClient.clearAuth();
+  });
+
+  describe('Health and Status Endpoints', () => {
+    test('Health check endpoint responds correctly', async () => {
+      const response = await apiClient.get('/health');
+      
+      expect(response.success).toBe(true);
+      expect(response.data).toHaveProperty('status', 'ok');
+      expect(response.data).toHaveProperty('timestamp');
+      expect(response.data).toHaveProperty('version');
+      expect(response.data).toHaveProperty('environment');
+    });
+
+    test('API info endpoint provides correct information', async () => {
+      const response = await apiClient.get('/api/info');
+      
+      expect(response.success).toBe(true);
+      expect(response.data).toHaveProperty('name');
+      expect(response.data).toHaveProperty('version');
+      expect(response.data).toHaveProperty('description');
+      expect(response.data.name).toBe('DASH RACING API');
+    });
+  });
+
+  describe('Authentication Endpoints', () => {
+    test('Registration endpoint validation', async () => {
+      // Test various validation scenarios
+      const testCases = [
+        {
+          data: { email: 'invalid-email' },
+          expected: 400,
+          description: 'invalid email format'
+        },
+        {
+          data: { email: 'test@example.com', password: '123' },
+          expected: 400,
+          description: 'weak password'
+        },
+        {
+          data: { email: 'test@example.com', password: 'StrongPass123!', username: 'a' },
+          expected: 400,
+          description: 'username too short'
+        }
+      ];
+
+      for (const testCase of testCases) {
+        const response = await apiClient.post('/api/auth/register', testCase.data);
+        expect(response.status).toBe(testCase.expected);
+        expect(response.success).toBe(false);
+      }
+    });
+
+    test('Login rate limiting', async () => {
+      const loginData = {
+        email: 'nonexistent@example.com',
+        password: 'wrongpassword'
+      };
+
+      // Make multiple failed login attempts
+      const attempts = [];
+      for (let i = 0; i < 6; i++) {
+        attempts.push(apiClient.post('/api/auth/login', loginData));
+      }
+
+      const responses = await Promise.all(attempts);
+      
+      // Should start getting rate limited after several attempts
+      const rateLimitedResponses = responses.filter(r => r.status === 429);
+      expect(rateLimitedResponses.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('User Management Endpoints', () => {
+    test('User profile CRUD operations', async () => {
+      // Get initial profile
+      const getResponse = await apiClient.get('/api/users/profile');
+      expect(getResponse.success).toBe(true);
+      expect(getResponse.data.email).toBe(testUser.email);
+
+      // Update profile
+      const updateData = {
+        firstName: 'Updated',
+        lastName: 'Name',
+        bio: 'This is my racing bio'
+      };
+
+      const updateResponse = await apiClient.put('/api/users/profile', updateData);
+      expect(updateResponse.success).toBe(true);
+      
+      // Check response structure (might be data.user or direct data)
+      if (updateResponse.data.user) {
+        expect(updateResponse.data.user.firstName).toBe(updateData.firstName);
+        expect(updateResponse.data.user.bio).toBe(updateData.bio);
+      } else {
+        expect(updateResponse.data.firstName).toBe(updateData.firstName);
+        expect(updateResponse.data.bio).toBe(updateData.bio);
+      }
+
+      // Verify update persisted
+      const getUpdatedResponse = await apiClient.get('/api/users/profile');
+      expect(getUpdatedResponse.data.firstName).toBe(updateData.firstName);
+    });
+    });
+
+    test('User statistics tracking', async () => {
+      // Create some test data that would affect stats
+      await apiClient.post('/api/vehicles', {
+        name: 'Stats Car',
+        make: 'Toyota',
+        model: 'Supra',
+        year: 2023
+      });
+
+      const statsResponse = await apiClient.get('/api/users/stats');
+      expect(statsResponse.success).toBe(true);
+      expect(statsResponse.data).toHaveProperty('totalRaces');
+      expect(statsResponse.data).toHaveProperty('totalWins');
+      expect(statsResponse.data).toHaveProperty('totalVehicles');
+      expect(statsResponse.data.totalVehicles).toBe(1);
+    });
+  });
+
+  describe('Vehicle Management Endpoints', () => {
+    test('Vehicle CRUD with performance data', async () => {
+      // Create vehicle
+      const vehicleData = {
+        name: 'Performance Test Car',
+        make: 'Porsche',
+        model: '911 Turbo S',
+        year: 2024,
+        color: 'Guards Red'
+      };
+
+      const createResponse = await apiClient.post('/api/vehicles', vehicleData);
+      expect(createResponse.success).toBe(true);
+      
+      const vehicleId = createResponse.data.vehicle.id;
+
+      // Add performance data
+      const performanceData = {
+        horsePower: 640,
+        torque: 590,
+        topSpeed: 205,
+        acceleration: 2.6,
+        weight: 3640
+      };
+
+      const perfResponse = await apiClient.put(`/vehicles/${vehicleId}/performance`, performanceData);
+      expect(perfResponse.success).toBe(true);
+
+      // Get vehicle with performance data
+      const getResponse = await apiClient.get(`/vehicles/${vehicleId}`);
+      expect(getResponse.success).toBe(true);
+      expect(getResponse.data.vehicle.performance.horsePower).toBe(performanceData.horsePower);
+    });
+
+    test('Vehicle search and filtering', async () => {
+      // Create multiple vehicles
+      const vehicles = [
+        { name: 'BMW M3', make: 'BMW', model: 'M3', year: 2023, color: 'Alpine White' },
+        { name: 'BMW M5', make: 'BMW', model: 'M5', year: 2024, color: 'Storm Bay' },
+        { name: 'Audi RS6', make: 'Audi', model: 'RS6', year: 2023, color: 'Nardo Gray' }
+      ];
+
+      for (const vehicle of vehicles) {
+        await apiClient.post('/api/vehicles', vehicle);
+      }
+
+      // Test filtering by make
+      const bmwResponse = await apiClient.get('/api/vehicles?make=BMW');
+      expect(bmwResponse.success).toBe(true);
+      expect(bmwResponse.data.vehicles).toHaveLength(2);
+
+      // Test filtering by year
+      const year2023Response = await apiClient.get('/api/vehicles?year=2023');
+      expect(year2023Response.success).toBe(true);
+      expect(year2023Response.data.vehicles).toHaveLength(2);
+
+      // Test search by name
+      const searchResponse = await apiClient.get('/api/vehicles?search=M3');
+      expect(searchResponse.success).toBe(true);
+      expect(searchResponse.data.vehicles).toHaveLength(1);
+      expect(searchResponse.data.vehicles[0].model).toBe('M3');
+    });
+  });
+
+  describe('Race Management Endpoints', () => {
+    test('Race lifecycle management', async () => {
+      // Create vehicle first
+      await apiClient.post('/api/vehicles', {
+        name: 'Race Car',
+        make: 'McLaren',
+        model: '720S',
+        year: 2023
+      });
+
+      // Create race
+      const raceData = {
+        name: 'Integration Test Race',
+        description: 'Testing race lifecycle',
+        startLocation: { lat: 40.7128, lng: -74.0060 },
+        endLocation: { lat: 40.7589, lng: -73.9851 },
+        maxParticipants: 4,
+        entryFee: 50.00,
+        prizePool: 180.00,
+        startTime: new Date(Date.now() + 7200000).toISOString(), // 2 hours
+        raceType: 'circuit'
+      };
+
+      const createResponse = await apiClient.post('/api/races', raceData);
+      expect(createResponse.success).toBe(true);
+      
+      const raceId = createResponse.data.race.id;
+      
+      // Join race
+      const joinResponse = await apiClient.post(`/races/${raceId}/join`);
+      expect(joinResponse.success).toBe(true);
+
+      // Update race (only race creator can do this)
+      const updateData = {
+        description: 'Updated description',
+        maxParticipants: 6
+      };
+
+      const updateResponse = await apiClient.put(`/races/${raceId}`, updateData);
+      expect(updateResponse.success).toBe(true);
+      expect(updateResponse.data.race.description).toBe(updateData.description);
+
+      // Get race details
+      const getResponse = await apiClient.get(`/races/${raceId}`);
+      expect(getResponse.success).toBe(true);
+      expect(getResponse.data.race.participants).toHaveLength(1);
+    });
+
+    test('Race search and filtering', async () => {
+      // Create multiple races
+      const races = [
+        {
+          name: 'Street Race 1',
+          raceType: 'street',
+          startLocation: { lat: 40.7128, lng: -74.0060 },
+          endLocation: { lat: 40.7589, lng: -73.9851 },
+          startTime: new Date(Date.now() + 3600000).toISOString()
+        },
+        {
+          name: 'Circuit Race 1',
+          raceType: 'circuit',
+          startLocation: { lat: 40.7500, lng: -73.9900 },
+          endLocation: { lat: 40.7600, lng: -73.9800 },
+          startTime: new Date(Date.now() + 7200000).toISOString()
+        }
+      ];
+
+      for (const race of races) {
+        await apiClient.post('/api/races', race);
+      }
+
+      // Filter by race type
+      const streetRacesResponse = await apiClient.get('/api/races?type=street');
+      expect(streetRacesResponse.success).toBe(true);
+      expect(streetRacesResponse.data.races).toHaveLength(1);
+      expect(streetRacesResponse.data.races[0].raceType).toBe('street');
+
+      // Filter by status
+      const pendingRacesResponse = await apiClient.get('/api/races?status=pending');
+      expect(pendingRacesResponse.success).toBe(true);
+      expect(pendingRacesResponse.data.races.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('Friends and Social Endpoints', () => {
+    test('Friend request workflow', async () => {
+      // Get current user info
+      const profileResponse = await apiClient.get('/api/users/profile');
+      expect(profileResponse.success).toBe(true);
+      const originalUser = {
+        username: profileResponse.data.username,
+        email: profileResponse.data.email
+      };
+      
+      // Create second user
+      const friend = TestUtils.generateTestUser();
+      await apiClient.post('/api/auth/register', {
+        email: friend.email,
+        username: friend.username,
+        password: 'TestPassword123!',
+        firstName: 'Friend',
+        lastName: 'User'
+      });
+
+      // Send friend request (as original user)
+      const requestResponse = await apiClient.post('/api/friends/request', {
+        username: friend.username
+      });
+      expect(requestResponse.success).toBe(true);
+
+      // Login as friend
+      const friendLogin = await apiClient.post('/api/auth/login', {
+        email: friend.email,
+        password: 'TestPassword123!'
+      });
+
+      apiClient.setAuthToken(friendLogin.data.token);
+
+      // Check pending requests
+      const pendingResponse = await apiClient.get('/api/friends/pending');
+      expect(pendingResponse.success).toBe(true);
+      expect(pendingResponse.data.requests).toHaveLength(1);
+
+      // Accept friend request (using original user's username)
+      const acceptResponse = await apiClient.post('/api/friends/accept', {
+        username: originalUser.username
+      });
+      expect(acceptResponse.success).toBe(true);
+
+      // Check friends list
+      const friendsResponse = await apiClient.get('/api/friends');
+      expect(friendsResponse.success).toBe(true);
+      expect(friendsResponse.data.friends).toHaveLength(1);
+      expect(friendsResponse.data.friends[0].username).toBe(originalUser.username);
+    });
+  });
+
+  describe('Error Handling and Edge Cases', () => {
+    test('404 errors for non-existent resources', async () => {
+      const endpoints = [
+        '/api/vehicles/non-existent-id',
+        '/api/races/non-existent-id',
+        '/api/users/non-existent-username'
+      ];
+
+      for (const endpoint of endpoints) {
+        const response = await apiClient.get(endpoint);
+        expect(response.success).toBe(false);
+        expect(response.status).toBe(404);
+      }
+    });
+
+    test('Authorization errors for protected resources', async () => {
+      // Clear auth token
+      apiClient.clearAuth();
+
+      const protectedEndpoints = [
+        '/api/users/profile',
+        '/api/vehicles',
+        '/api/races'
+      ];
+
+      for (const endpoint of protectedEndpoints) {
+        const response = await apiClient.get(endpoint);
+        expect(response.success).toBe(false);
+        expect(response.status).toBe(401);
+      }
+    });
+
+    test('Validation errors for malformed requests', async () => {
+      const invalidRequests = [
+        {
+          endpoint: '/vehicles',
+          method: 'post',
+          data: { name: 'Car' }, // Missing required fields
+          expectedStatus: 400
+        },
+        {
+          endpoint: '/races',
+          method: 'post',
+          data: { name: 'Race' }, // Missing required fields
+          expectedStatus: 400
+        }
+      ];
+
+      for (const request of invalidRequests) {
+        const response = request.method === 'post' 
+          ? await apiClient.post(request.endpoint, request.data)
+          : await apiClient.get(request.endpoint);
+        
+        expect(response.success).toBe(false);
+        expect(response.status).toBe(request.expectedStatus);
+      }
+    });
+  });
+});
