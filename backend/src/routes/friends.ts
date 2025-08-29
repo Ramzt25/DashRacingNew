@@ -23,22 +23,18 @@ async function friendRoutes(fastify: FastifyInstance): Promise<void> {
       
       console.log(`💾 Querying database for user: ${username}`);
       
-      // Find user by username
-      const { data: users } = await dbService.supabase
-        .from('users')
-        .select('id, username, email')
-        .eq('username', username)
-        .limit(1);
+      // Find user by username using mock-aware method
+      const userResult = await dbService.getUserByUsername(username);
       
-      console.log(`🔍 Friend request - Looking for user '${username}', found:`, users);
+      console.log(`🔍 Friend request - Looking for user '${username}', found:`, userResult.success ? userResult.data : null);
       
-      if (!users || users.length === 0) {
+      if (!userResult.success || !userResult.data) {
         console.log(`❌ Target user '${username}' not found`);
         reply.status(404).send({ success: false, error: 'User not found' });
         return;
       }
       
-      const targetUser = users[0];
+      const targetUser = userResult.data;
       console.log(`📤 Sending friend request notification to user ${targetUser.id} (${targetUser.username})`);
       
       // Send WebSocket notification to target user
