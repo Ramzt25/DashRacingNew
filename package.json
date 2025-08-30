@@ -11,6 +11,7 @@
     "mobile:android": "cd mobile && npm run android",
     "get-ip": "node scripts/get-local-ip.js",
     "test:local-setup": "node scripts/test-local-setup.js",
+    "test:mobile-network": "node tests/test-mobile-network.js",
     "dev:mobile": "cd mobile && npm start",
     "dev:backend": "cd backend && npm run dev",
     "dev:ios": "cd mobile && npm run ios",

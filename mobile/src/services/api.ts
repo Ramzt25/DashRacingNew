@@ -1,10 +1,11 @@
 import { User, Vehicle, Race, Friendship, ApiResponse } from '../../../shared/types';
 import { API_BASE_URL } from '@env';
 import * as Keychain from 'react-native-keychain';
+import { networkService } from '../utils/network';
 
 // Backend API configuration
-// Use environment variable for base URL to support local network development
-const BASE_URL = API_BASE_URL || (__DEV__ ? 'http://192.168.1.100:3000' : 'https://your-production-backend.com');
+// Use network service for dynamic URL resolution to support local network development
+const BASE_URL = API_BASE_URL || (__DEV__ ? 'http://10.1.0.150:3000' : 'https://your-production-backend.com');
 const API_TIMEOUT = 10000;
 
 console.log('🔧 API Configuration:', { BASE_URL, isDev: __DEV__ });
@@ -77,14 +78,25 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${BASE_URL}${endpoint}`;
+      // Use network service for dynamic URL resolution
+      const url = networkService.getApiUrl(endpoint);
       console.log('📡 API Request:', url);
+      
+      // Check network connectivity
+      if (!networkService.isNetworkAvailable()) {
+        console.warn('⚠️ Network not available, attempting request anyway...');
+      }
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
       
       const response = await fetch(url, {
         headers: this.getHeaders(),
+        signal: controller.signal,
         ...options,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok) {
@@ -100,9 +112,23 @@ class ApiService {
       };
     } catch (error) {
       console.error('API request failed:', error);
+      
+      // Provide more specific error messages for network issues
+      let errorMessage = 'Network request failed';
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timeout - check your network connection';
+        } else if (error.message?.includes('Network request failed')) {
+          errorMessage = 'Cannot connect to server - ensure you are on the same WiFi network';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Network error occurred',
+        error: errorMessage,
       };
     }
   }
@@ -292,6 +318,45 @@ class ApiService {
   // Health Check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
     return this.request<{ status: string }>('/health');
+  }
+
+  // Network Testing and Auto-Detection
+  async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.healthCheck();
+      return result.success;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      return false;
+    }
+  }
+
+  async autoDetectNetwork(): Promise<boolean> {
+    console.log('🔍 Auto-detecting network configuration...');
+    
+    // First try the current configuration
+    if (await this.testConnection()) {
+      console.log('✅ Current configuration working');
+      return true;
+    }
+    
+    // Use network service auto-detection
+    await networkService.autoDetectNetwork();
+    
+    // Test again with new configuration
+    const connected = await this.testConnection();
+    if (connected) {
+      console.log('✅ Auto-detection successful');
+    } else {
+      console.log('❌ Auto-detection failed - check WiFi and backend server');
+    }
+    
+    return connected;
+  }
+
+  getNetworkConfig() {
+    return networkService.getConfig();
+  }
   }
 
   // Utility Methods
