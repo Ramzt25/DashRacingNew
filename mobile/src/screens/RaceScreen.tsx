@@ -201,7 +201,7 @@ const RaceScreen: React.FC = () => {
   const renderRaceCard = (race: Race) => {
     const isJoining = joiningRaceId === race.id;
     const isMyRace = race.creatorId === state.user?.id;
-    const isJoined = race.participants.some(p => p.userId === state.user?.id);
+    const isJoined = race.participants.some(p => p && p.userId && p.userId === state.user?.id);
 
     return (
       <View key={race.id} style={styles.raceCard}>
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
-    ...shadows.medium,
+    ...shadows.md,
   } as ViewStyle,
   
   raceHeader: {

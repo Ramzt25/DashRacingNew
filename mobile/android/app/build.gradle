@@ -18,7 +18,7 @@ android {
     defaultConfig {
         applicationId "com.dashracing"
         minSdk 23
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        targetSdk 35
         versionCode 1
         versionName "1.0"
     }
@@ -61,6 +61,9 @@ dependencies {
     // React Native 0.74.7 core dependency
     implementation('com.facebook.react:react-android:0.74.7')
     implementation('com.facebook.soloader:soloader:0.10.5')
+    
+    // Hermes JS engine
+    implementation("com.facebook.react:hermes-android:0.74.7")
     
     // React Native 0.74.7 handles JS engine through autolinking
     debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")

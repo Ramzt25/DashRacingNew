@@ -9,7 +9,7 @@
     "test": "jest",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "clean": "react-native clean",
-    "build:android": "cd android && ./gradlew assembleRelease",
+    "build:android": "cd android && gradlew.bat assembleRelease",
     "build:ios": "cd ios && xcodebuild -workspace DashRacing.xcworkspace -scheme DashRacing -configuration Release"
   },
   "dependencies": {

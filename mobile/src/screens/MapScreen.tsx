@@ -99,7 +99,7 @@ interface RaceCardProps {
 const RaceCard: React.FC<RaceCardProps> = ({ race, onJoinRace, onViewDetails, isJoining }) => {
   const { state } = useApp();
   const isMyRace = race.creatorId === state.user?.id;
-  const isJoined = race.participants.some(p => p.userId === state.user?.id);
+  const isJoined = race.participants.some(p => p && p.userId && p.userId === state.user?.id);
 
   return (
     <View style={styles.raceCard}>
@@ -345,7 +345,7 @@ const MapScreen: React.FC = () => {
       [
         { text: 'Close', style: 'cancel' },
         race.status === 'scheduled' && race.creatorId !== state.user?.id && 
-        !race.participants.some(p => p.userId === state.user?.id) &&
+        !race.participants.some(p => p && p.userId && p.userId === state.user?.id) &&
         race.participants.length < race.maxParticipants
           ? { text: 'Join Race', onPress: () => handleJoinRace(race) }
           : undefined,

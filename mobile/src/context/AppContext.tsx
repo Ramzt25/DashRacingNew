@@ -201,8 +201,8 @@ const AppContext = createContext<{
 // Actions Interface
 interface AppActions {
   // Authentication
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signUp: (email: string, password: string, username: string) => Promise<boolean>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, username: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   loadUserData: () => Promise<void>;
 
@@ -247,32 +247,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // Load cached data first
-      await loadCachedData();
-
-      // Check authentication
-      try {
-        const verifyResponse = await apiService.verifyToken();
-        if (verifyResponse.success && verifyResponse.data) {
-          const profileResponse = await apiService.getUserProfile();
-          if (profileResponse.success && profileResponse.data) {
-            dispatch({ type: 'SET_USER', payload: profileResponse.data });
-            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
-            await loadUserDataHelper();
-          }
-        }
-      } catch (error) {
-        // Token is invalid or expired, user needs to login again
-        console.log('No valid session found');
-      }
-
-      // Check onboarding status
+      // Check if user has completed onboarding
       const onboardingComplete = await storageService.isOnboardingComplete();
       dispatch({ type: 'SET_ONBOARDING_COMPLETE', payload: onboardingComplete });
 
       // Check permissions
       const locationPermission = await storageService.getLocationPermission();
       dispatch({ type: 'SET_LOCATION_PERMISSION', payload: locationPermission });
+
+      // Load basic cached preferences only (no race data)
+      try {
+        const cachedPreferences = await storageService.getUserPreferences();
+        if (cachedPreferences) {
+          dispatch({ type: 'SET_PREFERENCES', payload: cachedPreferences });
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+
+      // Check authentication - only try if we have stored credentials
+      try {
+        const storedUser = await storageService.getUser();
+        if (storedUser) {
+          const verifyResponse = await apiService.verifyToken();
+          if (verifyResponse.success && verifyResponse.data) {
+            const profileResponse = await apiService.getUserProfile();
+            if (profileResponse.success && profileResponse.data) {
+              dispatch({ type: 'SET_USER', payload: profileResponse.data });
+              dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+              // Load user data only after authentication is confirmed
+              await loadUserDataHelper();
+            } else {
+              // Clear invalid stored user
+              await storageService.removeUser();
+            }
+          } else {
+            // Token is invalid, clear stored user
+            await storageService.removeUser();
+          }
+        }
+        // If no stored user, we'll show login screen (user remains null)
+      } catch (error) {
+        console.log('No valid session found, directing to login');
+        // Clear any invalid stored data
+        await storageService.removeUser();
+      }
 
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -325,7 +344,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const actions: AppActions = {
     // Authentication
-    signIn: async (email: string, password: string): Promise<boolean> => {
+    signIn: async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
         
@@ -338,19 +357,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await storageService.setUser(user);
           await loadUserDataHelper();
           
-          return true;
+          return { success: true };
         }
         
-        return false;
+        return { success: false, error: response.error || 'Login failed' };
       } catch (error) {
         console.error('Sign in failed:', error);
-        return false;
+        return { success: false, error: error instanceof Error ? error.message : 'Network error occurred' };
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     },
 
-    signUp: async (email: string, password: string, username: string): Promise<boolean> => {
+    signUp: async (email: string, password: string, username: string): Promise<{ success: boolean; error?: string }> => {
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
         
@@ -362,13 +381,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           await storageService.setUser(user);
           
-          return true;
+          return { success: true };
         }
         
-        return false;
+        return { success: false, error: response.error || 'Registration failed' };
       } catch (error) {
         console.error('Sign up failed:', error);
-        return false;
+        return { success: false, error: error instanceof Error ? error.message : 'Network error occurred' };
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
@@ -500,19 +519,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         const response = await apiService.getRaces();
         if (response.success && response.data) {
-          dispatch({ type: 'SET_NEARBY_RACES', payload: response.data.races });
+          // Ensure race data is valid and has proper participants array
+          const validRaces = response.data.races.filter(race => 
+            race && 
+            Array.isArray(race.participants) && 
+            race.participants.every(p => p && p.userId)
+          );
+          dispatch({ type: 'SET_NEARBY_RACES', payload: validRaces });
         }
       } catch (error) {
         console.error('Failed to load nearby races:', error);
+        // Set empty array as fallback
+        dispatch({ type: 'SET_NEARBY_RACES', payload: [] });
       }
     },
 
     loadRecentRaces: async (): Promise<void> => {
       try {
         const cachedRaces = await storageService.getRecentRaces();
-        dispatch({ type: 'SET_RECENT_RACES', payload: cachedRaces });
+        // Ensure race data is valid and has proper participants array
+        const validRaces = cachedRaces.filter(race => 
+          race && 
+          Array.isArray(race.participants) && 
+          race.participants.every(p => p && p.userId)
+        );
+        dispatch({ type: 'SET_RECENT_RACES', payload: validRaces });
       } catch (error) {
         console.error('Failed to load recent races:', error);
+        // Set empty array as fallback
+        dispatch({ type: 'SET_RECENT_RACES', payload: [] });
       }
     },
 

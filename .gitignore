@@ -5,12 +5,11 @@ yarn-debug.log*
 yarn-error.log*
 
 # Environment variables
-# Comment out during development to allow .env files
-# .env
-# .env.local
-# .env.development.local
-# .env.test.local
-# .env.production.local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Build outputs
 dist/

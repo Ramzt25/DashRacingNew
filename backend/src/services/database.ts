@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User, Vehicle, Race, Meetup, Friendship, ApiResponse } from '../types';
+import { randomUUID } from 'crypto';
 
 export class SupabaseService {
   public supabase: SupabaseClient;
@@ -196,27 +197,21 @@ export class SupabaseService {
 
       // Create new user
       const newUser = {
-        auth_user_id: `auth_${Date.now()}`, // Temporary auth ID
+        // auth_user_id: randomUUID(), // Skip auth_user_id for now
         email,
         username,
-        preferences: JSON.stringify({
-          notifications: true,
-          location: true,
-          units: 'imperial',
-          soundEnabled: true,
-          vibrationEnabled: true,
-        }),
-        stats: JSON.stringify({
-          totalRaces: 0,
-          wins: 0,
-          bestTime: null,
-          totalDistance: 0,
-          winRate: 0,
-          racesWon: 0,
-          bestLapTime: null,
-          averageSpeed: 0,
-        }),
+        display_name: username, // Use username as display name initially
+        units: 'imperial',
+        notifications_enabled: true,
+        location_sharing_enabled: true,
+        sound_enabled: true,
+        vibration_enabled: true,
         is_pro: false,
+        total_races: 0,
+        total_wins: 0,
+        total_distance: 0.0,
+        win_rate: 0.0,
+        average_speed: 0.0,
         created_at: new Date().toISOString(),
       };
 
@@ -234,9 +229,10 @@ export class SupabaseService {
       };
       
     } catch (error) {
+      console.error('Registration error:', error);
       return {
         success: false,
-        error: `Registration failed: ${error}`,
+        error: `Registration failed: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
       };
     }
   }
@@ -952,24 +948,24 @@ export class SupabaseService {
       id: dbUser.id,
       username: dbUser.username,
       email: dbUser.email,
-      avatar: dbUser.avatar,
+      avatar: dbUser.avatar_url,
       location: dbUser.location ? JSON.parse(dbUser.location) : undefined,
-      preferences: dbUser.preferences ? JSON.parse(dbUser.preferences) : {
-        notifications: true,
-        location: true,
-        units: 'imperial',
-        soundEnabled: true,
-        vibrationEnabled: true,
+      preferences: {
+        notifications: dbUser.notifications_enabled ?? true,
+        location: dbUser.location_sharing_enabled ?? true,
+        units: dbUser.units || 'imperial',
+        soundEnabled: dbUser.sound_enabled ?? true,
+        vibrationEnabled: dbUser.vibration_enabled ?? true,
       },
-      stats: dbUser.stats ? JSON.parse(dbUser.stats) : {
-        totalRaces: 0,
-        wins: 0,
-        bestTime: null,
-        totalDistance: 0,
-        winRate: 0,
-        racesWon: 0,
-        bestLapTime: null,
-        averageSpeed: 0,
+      stats: {
+        totalRaces: dbUser.total_races || 0,
+        wins: dbUser.total_wins || 0,
+        bestTime: dbUser.best_quarter_mile || null,
+        totalDistance: dbUser.total_distance || 0,
+        winRate: dbUser.win_rate || 0,
+        racesWon: dbUser.total_wins || 0,
+        bestLapTime: dbUser.best_quarter_mile || null,
+        averageSpeed: dbUser.average_speed || 0,
       },
       isPro: dbUser.is_pro || false,
       createdAt: new Date(dbUser.created_at),

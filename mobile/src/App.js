@@ -4,6 +4,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppProvider} from './context/AppContext';
+import AuthWrapper from './components/AuthWrapper';
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -43,15 +44,17 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NavigationContainer>
-          <Stack.Navigator>
-            <Stack.Screen 
-              name="Main" 
-              component={MainTabs} 
-              options={{headerShown: false}}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
+        <AuthWrapper>
+          <NavigationContainer>
+            <Stack.Navigator>
+              <Stack.Screen 
+                name="Main" 
+                component={MainTabs} 
+                options={{headerShown: false}}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </AuthWrapper>
       </AppProvider>
     </SafeAreaProvider>
   );
